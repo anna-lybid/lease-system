@@ -1,0 +1,32 @@
+# Ignore database files
+*.sqlite3
+
+# Ignore Django migrations
+**/migrations/
+
+# Ignore static files
+/staticfiles/
+
+# Ignore environment-specific settings
+.env
+
+# Ignore local development settings
+local_settings.py
+
+# Ignore Python bytecode
+__pycache__/
+*.pyc
+
+# Ignore log files
+*.log
+
+# Ignore editor-specific files
+.vscode/
+.idea/
+
+# Ignore Django secret key
+*.secret_key
+
+# Ignore any other generated or sensitive files
+*.swp
+.DS_Store
