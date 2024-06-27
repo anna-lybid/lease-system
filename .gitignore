@@ -9,6 +9,8 @@
 
 # Ignore environment-specific settings
 .env
+y
+y.pub
 
 # Ignore local development settings
 local_settings.py
