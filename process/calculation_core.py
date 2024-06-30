@@ -1,6 +1,9 @@
 import csv
 from datetime import datetime
 import io
+from decimal import Decimal
+
+from dateutil.relativedelta import relativedelta
 
 
 def parse_csv(csv_file):
@@ -39,3 +42,109 @@ def parse_csv(csv_file):
             "fee":float(row['Document fee']) if "Document fee" in row else None,
         }
         return contract_data
+
+
+def calculate_monthly_installment(contract):
+    term = contract.term
+    capital = contract.amount_financed
+    interest_rate = Decimal(-1 + (1 + float(contract.interest_rate)) ** (1 / 12))
+    monthly_installment = Decimal("0")
+
+
+    if contract.non_standard_cashflows.exists():
+        rv = contract.non_standard_cashflows.first().amount
+        balloon = contract.non_standard_cashflows.first().amount
+    else:
+        rv = None
+        balloon = None
+
+    for month in range(1, term+1):
+        add_interest = capital * interest_rate
+        capital_before = capital
+        capital += add_interest
+
+        if month == term:
+            monthly_installment = balloon if balloon else monthly_installment
+            monthly_installment = rv if rv else monthly_installment
+        capital -= monthly_installment
+
+
+    end_capital_when_monthly_installment_is_None = capital
+
+
+
+    suggested_monthly_installment = Decimal("1041.67") ###
+    monthly_installment = suggested_monthly_installment
+    capital = contract.amount_financed
+
+    if contract.non_standard_cashflows.exists():
+        rv = contract.non_standard_cashflows.first().amount
+        balloon = contract.non_standard_cashflows.first().amount
+    else:
+        rv = None
+        balloon = None
+
+    for month in range(1, term + 1):
+        add_interest = capital * interest_rate
+        capital_before = capital
+        capital += add_interest
+
+        if month == term:
+            monthly_installment = balloon if balloon else monthly_installment
+            monthly_installment = rv if rv else monthly_installment
+        capital -= monthly_installment
+
+    end_capital_when_monthly_installment_is_suggested = capital
+
+    monthly_installment = (end_capital_when_monthly_installment_is_None * suggested_monthly_installment) / (end_capital_when_monthly_installment_is_None - end_capital_when_monthly_installment_is_suggested)
+
+    return monthly_installment
+
+
+def perform_calculation_on_screen(contract):
+    interest_rate = Decimal(-1 + (1 + float(contract.interest_rate)) ** (1 / 12))
+    start_date = contract.start_date
+    contract_id = contract.contract_inner_id
+    initial_capital = contract.amount_financed
+    term = contract.term
+    due_day = contract.due_day
+    fee = 0
+
+    if contract.non_standard_cashflows.exists():
+        rv = contract.non_standard_cashflows.first().amount
+        balloon = contract.non_standard_cashflows.first().amount
+    else:
+        rv = None
+        balloon = None
+
+    if contract.non_financed_charges.exists():
+        fee = contract.non_financed_charges.first().amount
+
+    results = []
+
+    monthly_installment = calculate_monthly_installment(contract)
+    capital = initial_capital
+    current_date = start_date
+
+    for month in range(1, term+1):
+        add_interest = capital * interest_rate
+        capital_before = capital
+        capital += add_interest
+        if month == term:
+            monthly_installment = balloon if balloon else monthly_installment
+            monthly_installment = rv if rv else monthly_installment
+        capital -= monthly_installment
+
+        current_date = start_date + relativedelta(months=+month)
+
+        results.append({
+            'contract_id': contract_id,
+            'start_date': current_date.strftime(f'%d/%m/%y'),
+            'due_day': current_date.replace(day=due_day).strftime('%d/%m/%y'),
+            'month': month,
+            'initial_capital': f"{capital_before:,.2f}",
+            'add_interest': f"{add_interest:,.2f}",
+            'monthly_installment': f"{(monthly_installment + fee):.2f}" if month == 1 else f"{monthly_installment:.2f}",
+            'capital_after': f"{capital:,.2f}"
+        })
+    return results
