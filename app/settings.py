@@ -39,9 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'debug_toolbar',
     'rest_framework',
-    'calculation_core',
-    'process',
-    'user'
+    'backend.calculation_core',
+    'backend.process',
+    'backend.user'
 ]
 
 AUTH_USER_MODEL = 'user.User'
