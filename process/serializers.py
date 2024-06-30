@@ -4,11 +4,7 @@ from process.models import (
     Product,
     Contract,
     NonStandardCashflow,
-    NonFinancedCharge,
-    ProductNonFinancedCharge,
-    ProductNonStandardCashflow,
-    ContractNonFinancedCharge,
-    ContractNonStandardCashflow
+    NonFinancedCharge
 )
 
 
@@ -33,13 +29,13 @@ class NonFinancedChargeSerializer(serializers.ModelSerializer):  ## For relatons
 
 class ContractNonFinancedChargeSerializer(serializers.ModelSerializer): ##POST
     class Meta:
-        model = ContractNonFinancedCharge
+        model = NonFinancedCharge
         fields = ['non_financed_charge', 'amount']
 
 
 class ContractNonStandardCashflowSerializer(serializers.ModelSerializer):  ##POST
     class Meta:
-        model = ContractNonStandardCashflow
+        model = NonStandardCashflow
         fields = ['non_standard_cashflow', 'amount']
 
 
@@ -52,17 +48,17 @@ class ProductSerializer(serializers.ModelSerializer):
 class ProductListSerializer(ProductSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description']
+        fields = ['product_inner_id', 'name', 'description']
 
 
 class ContractSerializer(serializers.ModelSerializer):
     non_standard_cashflows = NonStandardCashflowSerializer(many=True, required=False)
     non_financed_charges = NonFinancedChargeSerializer(many=True, required=False)
     product = ProductListSerializer(required=True)
+
     class Meta:
         model = Contract
-        fields =("contract_inner_id", "product", "term", "start_date", "due_day", "interest_rate", "amount_financed", "subsidy", "non_financed_charges", "non_standard_cashflows")
-        read_only_fields = ['id']
+        fields =("id", "contract_inner_id", "product", "term", "start_date", "due_day", "interest_rate", "amount_financed", "subsidy", "non_financed_charges", "non_standard_cashflows")
 
 
 class ContractListSerializer(ContractSerializer):
@@ -70,11 +66,7 @@ class ContractListSerializer(ContractSerializer):
         model = Contract
         fields = ("id", "contract_inner_id", "term", "start_date", "due_day", "interest_rate", "amount_financed")
 
+
 class UploadCSVSerializer(serializers.Serializer):
     csv_file = serializers.FileField()
 
-
-class ContractNonFinancedChargeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ContractNonFinancedCharge
-        fields = "__all__"

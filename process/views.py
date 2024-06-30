@@ -1,11 +1,15 @@
+import csv
+import datetime
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework import viewsets, status
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
-from process.models import Goal, Product, Contract, ContractNonFinancedCharge, ContractNonStandardCashflow
+from process.models import Goal, Product, Contract, NonFinancedCharge, NonStandardCashflow
 from process.serializers import GoalSerializer, ProductSerializer, ContractSerializer, UploadCSVSerializer, \
-    ProductListSerializer, ContractListSerializer
-from process.calculation_core import parse_csv
+    ProductListSerializer
+from process.calculation_core import parse_csv, perform_calculation_on_screen
 
 
 class GoalViewSet(viewsets.ModelViewSet):
@@ -14,7 +18,7 @@ class GoalViewSet(viewsets.ModelViewSet):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -22,26 +26,26 @@ class ProductViewSet(viewsets.ModelViewSet):
         return ProductSerializer
 
     def get_queryset(self):
-        if self.action == 'list':
-            return self.queryset
-        else:
-            return self.queryset.prefetch_related('non_financed_charges', 'non_standard_cashflows')
+        goal_pk = self.kwargs['goal_pk']
+        goal = get_object_or_404(Goal, pk=goal_pk)
+        queryset = Product.objects.filter(goal=goal)
 
+        return queryset
 
 
 class ContractViewSet(viewsets.ModelViewSet):
-    queryset = Contract.objects.all()
-
-    def get_serializer_class(self):
-        if self.action == 'list':
-            return ContractListSerializer
-        return ContractSerializer
+    serializer_class = ContractSerializer
 
     def get_queryset(self):
-        if self.action == 'list':
-            return self.queryset
-        else:
-            return self.queryset.select_related('product').prefetch_related('non_financed_charges', 'non_standard_cashflows')
+        goal_pk = self.kwargs['goal_pk']
+        product_pk = self.kwargs['product_pk']
+        product = get_object_or_404(Product, pk=product_pk)
+
+        queryset = Contract.objects.filter(product=product) \
+            .select_related('product') \
+            .prefetch_related('non_financed_charges', 'non_standard_cashflows')
+
+        return queryset
 
 
 class UploadCSVView(APIView):
@@ -65,30 +69,87 @@ class UploadCSVView(APIView):
                 amount_financed=contract_data['amount_financed'],
             )
 
-            if contract_data.get("balloon") is not None and product.non_financed_charges.exists():
-                non_financed_charge = product.non_financed_charges.first()
-                non_financed_charge.amount = contract_data["balloon"]
-                non_financed_charge.save()
+            if contract_data.get("balloon") is not None:
+                non_standard_cashflow, created = NonStandardCashflow.objects.get_or_create(
+                    name="Balloon charge",
+                    defaults={'amount': contract_data["balloon"]}
+                )
+                if not created:
+                    non_standard_cashflow.amount = contract_data["balloon"]
+                    non_standard_cashflow.save()
+                contract.non_standard_cashflows.add(non_standard_cashflow)
+
+
+            if contract_data.get("rv") is not None:
+                non_standard_cashflow, created = NonStandardCashflow.objects.get_or_create(
+                    name="RV charge",
+                    defaults={'amount': contract_data["rv"]}
+                )
+                if not created:
+                    non_standard_cashflow.amount = contract_data["rv"]
+                    non_standard_cashflow.save()
+                contract.non_standard_cashflows.add(non_standard_cashflow)
+
+
+            if contract_data.get("fee") is not None:
+                non_financed_charge, created = NonFinancedCharge.objects.get_or_create(
+                    name="Fee charge",
+                    defaults={'amount': contract_data["fee"]}
+                )
+                if not created:
+                    non_financed_charge.amount = contract_data["fee"]
+                    non_financed_charge.save()
                 contract.non_financed_charges.add(non_financed_charge)
 
 
-            #     contract_non_financed_charge_instance = ContractNonFinancedCharge.objects.create(
-            #         contract=contract,
-            #         non_financed_charge=non_financed_charge,
-            #         amount=contract_data["balloon"],
-            #     )
-            #     contract.non_financed_charges.add(contract_non_financed_charge_instance.non_financed_charge)
-            # #
-            # if contract_data.get("fee") is not None and product.non_financed_charges.exists():
-            #     non_financed_charge = product.non_financed_charges.first()
-            #     contract_non_financed_charge_instance = ContractNonFinancedCharge.objects.create(
-            #         contract=contract,
-            #         non_financed_charge=non_financed_charge,
-            #         amount=contract_data["fee"],
-            #     )
-            #     contract.non_financed_charges.add(contract_non_financed_charge_instance.non_financed_charge)
 
             serializer = ContractSerializer(contract)
             return Response({"contract_data": serializer.data}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ContractOnScreenView(APIView):
+    def get(self, request, contract_id, *args, **kwargs):
+        try:
+            contract = Contract.objects.get(pk=contract_id)
+            results = perform_calculation_on_screen(contract)
+            return Response(results, status=status.HTTP_200_OK)
+        except Contract.DoesNotExist:
+            return Response({"error": "Contract not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ContractDownloadView(APIView):
+    def get(self, request, contract_id, *args, **kwargs):
+        try:
+            contract = Contract.objects.get(pk=contract_id)
+            current_date = datetime.date.today()
+            filename = f"contract_{contract_id}_{current_date.strftime('%Y-%m-%d')}.csv"
+            results = perform_calculation_on_screen(contract)
+
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename={filename}'
+
+            fieldnames = ['contract_id', 'start_date', 'due_day', 'month', 'initial_capital', 'add_interest',
+                          'monthly_installment', 'capital_after']
+
+            writer = csv.DictWriter(response, fieldnames=fieldnames)
+            writer.writeheader()
+
+            for result in results:
+                row = {
+                    'contract_id': result['contract_id'],
+                    'start_date': result['start_date'],
+                    'due_day': result['due_day'],
+                    'month': result['month'],
+                    'initial_capital': result['initial_capital'],
+                    'add_interest': result['add_interest'],
+                    'monthly_installment': result['monthly_installment'],
+                    'capital_after': result['capital_after'],
+                }
+                writer.writerow(row)
+
+            return Response("Success", status=status.HTTP_200_OK)
+
+        except Contract.DoesNotExist:
+            return Response({"error": "Contract not found"}, status=status.HTTP_404_NOT_FOUND)

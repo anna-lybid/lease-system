@@ -59,8 +59,8 @@ class Product(models.Model):
     ]
 
     is_due_day_is_month_end = models.CharField(max_length=60, choices=DUE_DAY_MONTH_END_CHOICES, default="No special treatment")
-    non_financed_charges = models.ManyToManyField(NonFinancedCharge, through='ProductNonFinancedCharge', null=True, blank=True)
-    non_standard_cashflows = models.ManyToManyField(NonStandardCashflow, through='ProductNonStandardCashflow', null=True, blank=True)
+    non_financed_charges = models.ManyToManyField(NonFinancedCharge, blank=True)
+    non_standard_cashflows = models.ManyToManyField(NonStandardCashflow, blank=True)
     include_accounting_schedules = models.BooleanField(default=False)
     accounting_treatment = models.CharField(max_length=50, null=True, blank=True)
 
@@ -84,47 +84,11 @@ class Contract(models.Model):
     term = models.IntegerField()
     start_date = models.DateField()
     due_day = models.IntegerField()
-    interest_rate = models.DecimalField(max_digits=5, decimal_places=2)
+    interest_rate = models.DecimalField(max_digits=10, decimal_places=7)
     amount_financed = models.DecimalField(max_digits=10, decimal_places=2)
     subsidy = models.BooleanField(default=False)
-    non_financed_charges = models.ManyToManyField(NonFinancedCharge, through='ContractNonFinancedCharge')
-    non_standard_cashflows = models.ManyToManyField(NonStandardCashflow, through='ContractNonStandardCashflow')
+    non_financed_charges = models.ManyToManyField(NonFinancedCharge, blank=True)
+    non_standard_cashflows = models.ManyToManyField(NonStandardCashflow, blank=True)
 
     def __str__(self):
         return self.contract_inner_id
-
-
-class ProductNonFinancedCharge(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    non_financed_charge = models.ForeignKey(NonFinancedCharge, on_delete=models.CASCADE)
-    PAY_DATE_CHOICES = [
-        ("At the end of the contract", "At the end of the contract"),
-        ("At the start of the contract", "At the start of the contract"),
-        ("On any day during the contract period (manual setting)", "On any day during the contract period")
-    ]
-    pay_date = models.CharField(max_length=255, choices=PAY_DATE_CHOICES, default="At time n (end date of contract)")
-    name = models.CharField(max_length=255)
-
-
-class ContractNonFinancedCharge(models.Model):
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
-    non_financed_charge = models.ForeignKey(NonFinancedCharge, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-
-
-class ProductNonStandardCashflow(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    non_standard_cashflow = models.ForeignKey(NonStandardCashflow, on_delete=models.CASCADE)
-    PAY_DATE_CHOICES = [
-        ("At the end of the contract", "At the end of the contract"),
-        ("At the start of the contract", "At the start of the contract"),
-        ("On any day during the contract period (manual setting)", "On any day during the contract period")
-    ]
-    pay_date = models.CharField(max_length=255, choices=PAY_DATE_CHOICES, default="At time n (end date of contract)")
-    name = models.CharField(max_length=255)
-
-
-class ContractNonStandardCashflow(models.Model):
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE)
-    non_standard_cashflow = models.ForeignKey(NonStandardCashflow, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
