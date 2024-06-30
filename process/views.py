@@ -56,7 +56,7 @@ class UploadCSVView(APIView):
             product = Product.objects.get(product_inner_id=product_inner_id)
 
             contract = Contract.objects.create(
-                contract_inner_id= contract_data['contract_id'],
+                contract_inner_id=contract_data['contract_id'],
                 product=product,
                 term=contract_data['term'],
                 start_date=contract_data['start_date'],
@@ -65,30 +65,30 @@ class UploadCSVView(APIView):
                 amount_financed=contract_data['amount_financed'],
             )
 
-            if contract_data["balloon"] is not None and product.non_financed_charges.exists():
+            if contract_data.get("balloon") is not None and product.non_financed_charges.exists():
                 non_financed_charge = product.non_financed_charges.first()
-
-                contract_non_financed_charge_instance = ContractNonFinancedCharge.objects.create(
-                    contract=contract,
-                    non_financed_charge=non_financed_charge,
-                    amount=contract_data["balloon"],
-                )
-                non_financed_charge_instance = contract_non_financed_charge_instance.non_financed_charge
-                contract.non_financed_charges.add(non_financed_charge_instance)
+                non_financed_charge.amount = contract_data["balloon"]
+                non_financed_charge.save()
+                contract.non_financed_charges.add(non_financed_charge)
 
 
-            if contract_data["fee"] is not None and product.non_financed_charges.exists():
-                non_financed_charge = product.non_financed_charges.first()
-
-                contract_non_financed_charge_instance = ContractNonFinancedCharge.objects.create(
-                    contract=contract,
-                    non_financed_charge=non_financed_charge,
-                    amount=contract_data["fee"],
-                )
-                non_financed_charge_instance = contract_non_financed_charge_instance.non_financed_charge
-                contract.non_financed_charges.add(non_financed_charge_instance)
+            #     contract_non_financed_charge_instance = ContractNonFinancedCharge.objects.create(
+            #         contract=contract,
+            #         non_financed_charge=non_financed_charge,
+            #         amount=contract_data["balloon"],
+            #     )
+            #     contract.non_financed_charges.add(contract_non_financed_charge_instance.non_financed_charge)
+            # #
+            # if contract_data.get("fee") is not None and product.non_financed_charges.exists():
+            #     non_financed_charge = product.non_financed_charges.first()
+            #     contract_non_financed_charge_instance = ContractNonFinancedCharge.objects.create(
+            #         contract=contract,
+            #         non_financed_charge=non_financed_charge,
+            #         amount=contract_data["fee"],
+            #     )
+            #     contract.non_financed_charges.add(contract_non_financed_charge_instance.non_financed_charge)
 
             serializer = ContractSerializer(contract)
-
             return Response({"contract_data": serializer.data}, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

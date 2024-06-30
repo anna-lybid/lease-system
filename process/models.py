@@ -13,7 +13,7 @@ class Goal(models.Model):
 class NonFinancedCharge(models.Model):
     name = models.CharField(max_length=100)
     pay_date = models.CharField(max_length=50, default="At time n (end date of contract)")  ## Maybe it will be needed to edit
-    amount =models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -22,7 +22,7 @@ class NonFinancedCharge(models.Model):
 class NonStandardCashflow(models.Model):
     name = models.CharField(max_length=100)
     pay_date = models.CharField(max_length=50, default="At time n (end date of contract)")  ## Maybe will be needed to edit
-    amount =models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     def __str__(self):
         return self.name

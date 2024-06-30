@@ -16,5 +16,5 @@ router.register('contracts', ContractViewSet, basename='contracts')
 
 urlpatterns = [
     path("", include(router.urls)),
-    path('upload_csv/<int:product_id>/', UploadCSVView.as_view(), name='upload_csv')
+    path('upload_csv/<int:product_id>/', UploadCSVView.as_view(), name='upload_csv'),
 ]
