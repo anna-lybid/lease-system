@@ -4,7 +4,7 @@ from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/v1/process/', include('backend.process.urls'), name="process"),
+    path('api/', include('backend.process.urls'), name="process"),
 ]
 
 if settings.DEBUG:
